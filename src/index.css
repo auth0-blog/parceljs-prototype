@@ -1,0 +1,18 @@
+.parcel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  width: 325px;
+  height: 325px;
+
+  background: #e3d4c4;
+
+  text-decoration: none;
+  z-index: -200;
+}
+
+.parcel-img {
+  position: absolute;
+  z-index: 100;
+}
