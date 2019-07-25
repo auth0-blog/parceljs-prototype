@@ -16,6 +16,7 @@
   font-weight: bolder;
   font-size: 28px;
 }
+
 .parcel {
   display: flex;
   flex-direction: column;
@@ -34,3 +35,6 @@
   position: absolute;
   z-index: 100;
 }
+
+
+/*# sourceMappingURL=/src.e31bb0bc.css.map */

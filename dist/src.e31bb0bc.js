@@ -5,8 +5,6 @@
 //
 // anything defined in a previous bundle is accessed via the
 // orig method which is the require for previous bundles
-
-// eslint-disable-next-line no-global-assign
 parcelRequire = (function (modules, cache, entry, globalName) {
   // Save the require from previous bundle to this closure if any
   var previousRequire = typeof parcelRequire === 'function' && parcelRequire;
@@ -77,8 +75,16 @@ parcelRequire = (function (modules, cache, entry, globalName) {
     }, {}];
   };
 
+  var error;
   for (var i = 0; i < entry.length; i++) {
-    newRequire(entry[i]);
+    try {
+      newRequire(entry[i]);
+    } catch (e) {
+      // Save first error but execute all entries
+      if (!error) {
+        error = e;
+      }
+    }
   }
 
   if (entry.length) {
@@ -103,6 +109,13 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   // Override the current require with this new one
+  parcelRequire = newRequire;
+
+  if (error) {
+    // throw error from earlier, _after updating parcelRequire_
+    throw error;
+  }
+
   return newRequire;
 })({"../node_modules/base64-js/index.js":[function(require,module,exports) {
 'use strict'
@@ -2150,7 +2163,7 @@ var define;
 /**
  * @license
  * Lodash <https://lodash.com/>
- * Copyright JS Foundation and other contributors <https://js.foundation/>
+ * Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
  * Released under MIT license <https://lodash.com/license>
  * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
  * Copyright Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -2161,7 +2174,7 @@ var define;
   var undefined;
 
   /** Used as the semantic version number. */
-  var VERSION = '4.17.11';
+  var VERSION = '4.17.15';
 
   /** Used as the size to enable large array optimizations. */
   var LARGE_ARRAY_SIZE = 200;
@@ -4820,16 +4833,10 @@ var define;
         value.forEach(function(subValue) {
           result.add(baseClone(subValue, bitmask, customizer, subValue, value, stack));
         });
-
-        return result;
-      }
-
-      if (isMap(value)) {
+      } else if (isMap(value)) {
         value.forEach(function(subValue, key) {
           result.set(key, baseClone(subValue, bitmask, customizer, key, value, stack));
         });
-
-        return result;
       }
 
       var keysFunc = isFull
@@ -5753,8 +5760,8 @@ var define;
         return;
       }
       baseFor(source, function(srcValue, key) {
+        stack || (stack = new Stack);
         if (isObject(srcValue)) {
-          stack || (stack = new Stack);
           baseMergeDeep(object, source, key, srcIndex, baseMerge, customizer, stack);
         }
         else {
@@ -7571,7 +7578,7 @@ var define;
       return function(number, precision) {
         number = toNumber(number);
         precision = precision == null ? 0 : nativeMin(toInteger(precision), 292);
-        if (precision) {
+        if (precision && nativeIsFinite(number)) {
           // Shift with exponential notation to avoid floating-point issues.
           // See [MDN](https://mdn.io/round#Examples) for more details.
           var pair = (toString(number) + 'e').split('e'),
@@ -8754,7 +8761,7 @@ var define;
     }
 
     /**
-     * Gets the value at `key`, unless `key` is "__proto__".
+     * Gets the value at `key`, unless `key` is "__proto__" or "constructor".
      *
      * @private
      * @param {Object} object The object to query.
@@ -8762,6 +8769,10 @@ var define;
      * @returns {*} Returns the property value.
      */
     function safeGet(object, key) {
+      if (key === 'constructor' && typeof object[key] === 'function') {
+        return;
+      }
+
       if (key == '__proto__') {
         return;
       }
@@ -12562,6 +12573,7 @@ var define;
           }
           if (maxing) {
             // Handle invocations in a tight loop.
+            clearTimeout(timerId);
             timerId = setTimeout(timerExpired, wait);
             return invokeFunc(lastCallTime);
           }
@@ -16948,9 +16960,12 @@ var define;
       , 'g');
 
       // Use a sourceURL for easier debugging.
+      // The sourceURL gets injected into the source that's eval-ed, so be careful
+      // with lookup (in case of e.g. prototype pollution), and strip newlines if any.
+      // A newline wouldn't be a valid sourceURL anyway, and it'd enable code injection.
       var sourceURL = '//# sourceURL=' +
-        ('sourceURL' in options
-          ? options.sourceURL
+        (hasOwnProperty.call(options, 'sourceURL')
+          ? (options.sourceURL + '').replace(/[\r\n]/g, ' ')
           : ('lodash.templateSources[' + (++templateCounter) + ']')
         ) + '\n';
 
@@ -16983,7 +16998,9 @@ var define;
 
       // If `variable` is not specified wrap a with-statement around the generated
       // code to add the data object to the top of the scope chain.
-      var variable = options.variable;
+      // Like with sourceURL, we take care to not check the option's prototype,
+      // as this configuration is a code injection vector.
+      var variable = hasOwnProperty.call(options, 'variable') && options.variable;
       if (!variable) {
         source = 'with (obj) {\n' + source + '\n}\n';
       }
@@ -19188,10 +19205,11 @@ var define;
     baseForOwn(LazyWrapper.prototype, function(func, methodName) {
       var lodashFunc = lodash[methodName];
       if (lodashFunc) {
-        var key = (lodashFunc.name + ''),
-            names = realNames[key] || (realNames[key] = []);
-
-        names.push({ 'name': methodName, 'func': lodashFunc });
+        var key = lodashFunc.name + '';
+        if (!hasOwnProperty.call(realNames, key)) {
+          realNames[key] = [];
+        }
+        realNames[key].push({ 'name': methodName, 'func': lodashFunc });
       }
     });
 
@@ -19271,7 +19289,7 @@ function getBundleURL() {
   try {
     throw new Error();
   } catch (err) {
-    var matches = ('' + err.stack).match(/(https?|file|ftp):\/\/[^)\n]+/g);
+    var matches = ('' + err.stack).match(/(https?|file|ftp|chrome-extension|moz-extension):\/\/[^)\n]+/g);
 
     if (matches) {
       return getBaseURL(matches[0]);
@@ -19282,7 +19300,7 @@ function getBundleURL() {
 }
 
 function getBaseURL(url) {
-  return ('' + url).replace(/^((?:https?|file|ftp):\/\/.+)\/[^/]+$/, '$1') + '/';
+  return ('' + url).replace(/^((?:https?|file|ftp|chrome-extension|moz-extension):\/\/.+)\/[^/]+$/, '$1') + '/';
 }
 
 exports.getBundleURL = getBundleURLCached;
@@ -19417,26 +19435,46 @@ function Module(moduleName) {
 }
 
 module.bundle.Module = Module;
+var checkedAssets, assetsToAccept;
 var parent = module.bundle.parent;
 
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61176" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50590" + '/');
 
   ws.onmessage = function (event) {
+    checkedAssets = {};
+    assetsToAccept = [];
     var data = JSON.parse(event.data);
 
     if (data.type === 'update') {
-      console.clear();
-      data.assets.forEach(function (asset) {
-        hmrApply(global.parcelRequire, asset);
-      });
+      var handled = false;
       data.assets.forEach(function (asset) {
         if (!asset.isNew) {
-          hmrAccept(global.parcelRequire, asset.id);
+          var didAccept = hmrAcceptCheck(global.parcelRequire, asset.id);
+
+          if (didAccept) {
+            handled = true;
+          }
         }
+      }); // Enable HMR for CSS by default.
+
+      handled = handled || data.assets.every(function (asset) {
+        return asset.type === 'css' && asset.generated.js;
       });
+
+      if (handled) {
+        console.clear();
+        data.assets.forEach(function (asset) {
+          hmrApply(global.parcelRequire, asset);
+        });
+        assetsToAccept.forEach(function (v) {
+          hmrAcceptRun(v[0], v[1]);
+        });
+      } else {
+        window.location.reload();
+      }
     }
 
     if (data.type === 'reload') {
@@ -19524,7 +19562,7 @@ function hmrApply(bundle, asset) {
   }
 }
 
-function hmrAccept(bundle, id) {
+function hmrAcceptCheck(bundle, id) {
   var modules = bundle.modules;
 
   if (!modules) {
@@ -19532,9 +19570,27 @@ function hmrAccept(bundle, id) {
   }
 
   if (!modules[id] && bundle.parent) {
-    return hmrAccept(bundle.parent, id);
+    return hmrAcceptCheck(bundle.parent, id);
   }
 
+  if (checkedAssets[id]) {
+    return;
+  }
+
+  checkedAssets[id] = true;
+  var cached = bundle.cache[id];
+  assetsToAccept.push([bundle, id]);
+
+  if (cached && cached.hot && cached.hot._acceptCallbacks.length) {
+    return true;
+  }
+
+  return getParents(global.parcelRequire, id).some(function (id) {
+    return hmrAcceptCheck(global.parcelRequire, id);
+  });
+}
+
+function hmrAcceptRun(bundle, id) {
   var cached = bundle.cache[id];
   bundle.hotData = {};
 
@@ -19559,10 +19615,6 @@ function hmrAccept(bundle, id) {
 
     return true;
   }
-
-  return getParents(global.parcelRequire, id).some(function (id) {
-    return hmrAccept(global.parcelRequire, id);
-  });
 }
 },{}]},{},["../node_modules/parcel-bundler/src/builtins/hmr-runtime.js","index.js"], null)
-//# sourceMappingURL=/src.e31bb0bc.map
+//# sourceMappingURL=/src.e31bb0bc.js.map
